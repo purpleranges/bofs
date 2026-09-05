@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mingw-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-mingw-w64-x86-64-posix \
+            gcc-mingw-w64-x86-64-posix \
+            mingw-w64-tools \
+            zip
+
+      - name: Build all BOFs
+        run: make
+
+      - name: Package release bundle
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          STAGE="bofs-${VERSION}"
+
+          mkdir -p "$STAGE/ADDS-BOF/_bin" "$STAGE/Creds-BOF/_bin"
+
+          cp bofs.axs                   "$STAGE/"
+          cp ADDS-BOF/adds.axs          "$STAGE/ADDS-BOF/"
+          cp Creds-BOF/creds.axs        "$STAGE/Creds-BOF/"
+          cp ADDS-BOF/_bin/*.x64.o      "$STAGE/ADDS-BOF/_bin/"
+          cp Creds-BOF/_bin/*.x64.o     "$STAGE/Creds-BOF/_bin/"
+          cp README.md LICENSE NOTICE   "$STAGE/"
+
+          zip -r "${STAGE}.zip" "$STAGE"
+
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+
+          gh release create "$VERSION" \
+            --title "bofs ${VERSION}" \
+            --notes "Prebuilt BOFs and AdaptixC2 loader scripts for ${VERSION}. Download the zip, extract, and load \`bofs.axs\` in Adaptix (Main menu → Extensions → Script manager → Load new)." \
+            "${STAGE}.zip"

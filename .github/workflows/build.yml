@@ -1,0 +1,38 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mingw-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++-mingw-w64-x86-64-posix \
+            gcc-mingw-w64-x86-64-posix \
+            mingw-w64-tools
+
+      - name: Build all BOFs
+        run: make
+
+      - name: Verify all objects were produced
+        run: |
+          ls -la ADDS-BOF/_bin/*.x64.o Creds-BOF/_bin/*.x64.o
+
+      - name: Verify clean target
+        run: |
+          make clean
+          test ! -d ADDS-BOF/_bin
+          test ! -d Creds-BOF/_bin
